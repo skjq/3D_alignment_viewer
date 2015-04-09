@@ -132,3 +132,77 @@ setMethod('getResidueNumber', signature = 'CChain', definition = function(obj){
 
 ############ end class CChain
 
+######### Class CMapChainToFasta
+# Name: CMapChainToFasta
+# Desc: the sequence from a pdb file along with its coordinates need to be mapped 
+#       to the sequence from the fasta alignment file. when the fasta alignment sequence
+#       is taken from an alignment file, there are usually spaces in the forms of - in 
+#       the sequences, which means that mapping the sequence from the pdb file (which will
+#       not have any spaces) to the same sequence from the fasta alignment file needs to be
+#       done
+# Args: requires an array of characters for the sequence from the pdb file i.e. arChain.
+#       arFasta.seq: same sequence but from fasta alignment file with spaces
+#       iCoordinates: coordinates for the arChain sequence from pdb file
+# Rets: an object of the class that contains the mapped data
+setClass('CMapChainToFasta', slots=list(map='array', pos='matrix'))
+# constructor
+CMapChainToFasta = function(arChain, arFasta.seq, mCoordinates) {
+  # align the 2 sequences using biostrings class
+  if (!require(Biostrings)) stop('Bioconductor library Biostrings required')
+  # align pdb sequence to fasta sequence with spaces i.e. dashes -
+  pwa = pairwiseAlignment(paste(arChain, collapse = ''), 
+                          paste(arFasta.seq, collapse = ''))
+  # create a matrix of alignment object with chain seq and fasta seq
+  m = as.matrix(pwa)
+  names(arFasta.seq) = NULL
+  m = rbind(m, arFasta.seq)
+  # find the positions of the spaces i.e. - in the alignment
+  i = grep('-', m[1,])
+  x = 1:ncol(m)
+  # x has all the coordinates of the columns of matrix
+  # i has the columns that have a -
+  # subtracting i from x will give columns that have a sequence
+  s.len = start(pattern(pwa)):end(pattern(pwa))
+  # if perfect match with no spaces then grep returned index will be of length 0
+  # in that case no missing - unmapped data, aligns perfectly
+  if (length(i) > 0) x.map = x[-i] else x.map = x
+  # iCoordinates maps to rows of position matrix i.e. mCoordinates
+  iCoordinates = s.len
+  ar = matrix(c(s.len, x.map, iCoordinates), nrow = 3, byrow = T, 
+              dimnames = list(c('seq', 'map', 'coord'), NULL))
+  # some residues from the pdb sequence may be aligned to gaps
+  # and those will also need to be removed from this matrix as those
+  # residues do not exist in the fasta sequence 
+  x = ar['map',]
+  # check if any of these positions in the fasta sequence
+  # have a - which means there is no residue there and hence no coordinate
+  i = grep('-', arFasta.seq[x])
+  ar.in = 1:ncol(ar)
+  # remove these indices from the mapping matrix
+  if (length(i) > 0) ar.in = ar.in[-i]
+  ar = ar[,ar.in]
+  new('CMapChainToFasta', map=ar, pos=mCoordinates[ar.in,])  
+} # end constructor
+
+## accessor functions
+# Name: getResidueIndex
+# Args: object of class CMapChainToFasta
+# Rets: gives the index numbers for residues that have a coordinate
+setGeneric('getResidueIndex', function(obj) standardGeneric('getResidueIndex'))
+setMethod('getResidueIndex', signature = 'CMapChainToFasta', definition = function(obj){
+  m = obj@map['map',]
+  return(round(m,0))
+})
+
+# Name: getPosition
+# Args: object of class CMapChainToFasta
+# Rets: gives the positions for these residues i.e. x, y, z coordinates
+## this genereic already exists for CChain class
+#setGeneric('getPosition', function(obj) standardGeneric('getPosition'))
+setMethod('getPosition', signature = 'CMapChainToFasta', definition = function(obj){
+  m = obj@pos
+  return(round(m,2))
+})
+
+######### End Class CMapChainToFasta
+
