@@ -1,4 +1,4 @@
-# 3Dav_header.R
+# Name: 3Dav_header.R
 # Auth: Umar Niazi u.niazi@imperial.ac.uk
 # Date: 06/04/2015
 # Desc: header file for the project 3D_alignment_viewer loading libraries, setting global
@@ -6,6 +6,8 @@
 
 
 library(methods)
+library(igraph)
+library(Biostrings)
 
 
 #### Classes and functions
@@ -205,4 +207,40 @@ setMethod('getPosition', signature = 'CMapChainToFasta', definition = function(o
 })
 
 ######### End Class CMapChainToFasta
+
+######### Functions
+# Name: f_oIGsequenceToGraph
+# Desc: Converts the amino acid sequence into a graph object with each edge weighted
+#       depending on how close the 2 corresponding vertices are to each other
+# Args: arSeq - an array of characters of amino acid residues
+#       arVertexNames - an array of residue ids that will be assigned to the vertex names
+#       this should be index numbers of residues in alignment matrix after mapping of
+#       pdb and fasta sequences using the class CMapChainToFasta
+#       oMap - object of CMapChainToFasta class created earlier
+# Rets: an object of class igraph
+f_oIGsequenceToGraph = function(arSeq, arVertexNames, oMap){
+  if (!require(igraph)) stop('igraph library required')
+  # sequence - array of characters
+  s = arSeq
+  # array of vertex names - these will be numbers which correspond
+  # to the positions of the residues in the alignment matrix
+  # that are left behind after doing the mapping step
+  r = arVertexNames
+  # create the diatance matrix OR adjacency matrix - square matrix
+  m = as.matrix(dist(getPosition(oMap)))
+  rownames(m) = r
+  colnames(m) = r
+  # invert the weights, things that are farthest will have the smallest number
+  # others that are closest to each other will have the most remaining behind
+  # e.g. 10 - 5 = 5 no change in weight
+  # 10 - 8 = 2 as these 2 are far away, they will have a weight of 2 remaining etc
+  m = max(m) - m
+  # no connections or weights on diagonals
+  diag(m) = 0  
+  ig = graph.adjacency(m, 'min', weighted = T)
+  V(ig)$residue_name = s
+  return(ig)
+}
+
+
 
