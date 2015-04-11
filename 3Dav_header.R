@@ -242,5 +242,99 @@ f_oIGsequenceToGraph = function(arSeq, arVertexNames, oMap){
   return(ig)
 }
 
+##### Class CGraph
+# Name: Class CGgraph
+# Desc: assigns weights to one mode projection of graphs based on observed to expected probabilities of 
+#       vertices of the first kind i.e. with value TRUE using the igraph library
+#       Zweig, K. A., & Kaufmann, M. (2011). A systematic approach to the one-mode projection of 
+#       bipartite graphs. Social Network Analysis and Mining (Vol. 1, pp. 187–218). 
+#       doi:10.1007/s13278-011-0021-0
+
+# declaration
+setClass('CGraph', slots=list(ig='ANY', r='numeric', f='logical', ig.p='ANY'))
+
+# object constructor
+CGraph = function(oGraph){
+  # check if igraph library present
+  if (!require(igraph)) stop('R library igraph required')
+  # check if graph is bipartite
+  if (!is.bipartite(oGraph)) stop('Graph is not bipartite')
+  #### internal private functions
+  # processing steps - called by constructor  
+  # assign probabilities to vertex of first kind
+  # Name: CGraph.assign.marginal.probabilities
+  # Desc: assigns probabilities to each vertex of the first kind (TRUE) 
+  #       based on how many times it is connected to the vertex of the 
+  #       second kind i.e. degree(V1) / (total number of V-type2)
+  # Args: internal function - object of CGraph class
+  CGraph.assign.marginal.probabilities = function(obj){
+    # vertex of the first kind will be assigned probabilities
+    # based on their relations with the vertices of the second kind
+    # flag to identify vertex types
+    f = V(obj@ig)$type
+    d = degree(obj@ig)
+    d = d[f]
+    # r is the total numbers of vertices of the second kind
+    r = sum(!f)
+    p = d/r
+    V(obj@ig)[f]$prob_marginal = p
+    obj@r = r
+    obj@f = f
+    return(obj)
+  }
+  
+  # Name: CGraph.project
+  # Desc: assigns a level of interestingness/leverage or observed to expected ratio to 
+  #       each edge after graph projection on the vertex of first kind i.e. type = TRUE 
+  #       Observed frequency = weight of edge / (total number of vertices of second type)
+  #       i.e. how many shared vertices of type 2 are between the 2 type 1 vertices
+  #       Expected frequency = how many times we expect to see them based on their 
+  #       joint probability under assumption of independence. 
+  #       (marginal.prob of V1 * marginal.prob of V2)
+  # Args: called internally no need to do it externally, 
+  #       will project on vertex with TYPE=TRUE
+  CGraph.project = function(obj){
+    # project the graph in one dimension and
+    # assign weights based on observed to expected ratios
+    g.p = bipartite.projection(obj@ig, which = 'TRUE')
+    # get the matrix with rows representing each edge
+    m = get.edgelist(g.p)
+    w = E(g.p)$weight
+    # calculate observed ratio
+    # weight / r
+    ob = w / obj@r
+    # calculate expected 
+    mExp = cbind(V(g.p)[m[,1]]$prob_marginal, V(g.p)[m[,2]]$prob_marginal)
+    ex = mExp[,1] * mExp[,2]
+    E(g.p)$observed = ob
+    E(g.p)$expected = ex
+    E(g.p)$ob_to_ex = ob / ex
+    obj@ig.p = g.p
+    return(obj)
+  }
+  
+  ####
+  # create the object
+  g = new('CGraph', ig=oGraph, r = 0, f= F, ig.p=NULL)
+  # assign marginal probabilities
+  g = CGraph.assign.marginal.probabilities(g)
+  # assign weights on one mode projection
+  g = CGraph.project(g)
+  return(g)
+}
+
+
+# data acccessor functions
+setGeneric('getBipartiteGraph', function(obj)standardGeneric('getBipartiteGraph'))
+setMethod('getBipartiteGraph', signature = 'CGraph', definition = function(obj){
+  return(obj@ig)
+})
+
+setGeneric('getProjectedGraph', function(obj)standardGeneric('getProjectedGraph'))
+setMethod('getProjectedGraph', signature = 'CGraph', definition = function(obj){
+  return(obj@ig.p)
+})
+
+
 
 
