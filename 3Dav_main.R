@@ -111,8 +111,25 @@ summary(w)
 quantile(w)
 par(p.old)
 hist(w)
-# choose a cutoff
-f = which(w < quantile(w, 0.75))
+# choose a cutoff by modelling the distribution shape
+# it appears that the distribution follows a power law?
+# taking square root means we can fit a poisson distribution
+w2 = sqrt(w)
+r = round(range(w2))
+s = seq(r[1]-0.5, r[2]+0.5, by = 1)
+hist(w2, prob=T, breaks=s, main='distribution of obs to exp ratios', 
+     xlab='square root obs to exp ratio', ylab='')
+dp = dpois(r[1]:r[2], lambda = mean(w2))
+dn = dnbinom(r[1]:r[2], size = mean(w2), mu = mean(w2))
+lines(r[1]:r[2], dp, col='red')
+lines(r[1]:r[2], dn, col='blue')
+legend('topright', legend = c('poi', 'nbin'), fill = c('red', 'blue'))
+
+print(paste('Choose cutoff point looking at histogram, values less than cutoff will',
+      'be removed'))
+c = as.numeric(readLines(n=1))
+
+f = which(w2 < c)
 ig.p = delete.edges(ig.p, f)
 d = degree(ig.p)
 ig.p = delete.vertices(ig.p, which(d == 0))
@@ -120,10 +137,16 @@ par(mar=c(1,1,1,1))
 plot(ig.p, vertex.size=0.1, layout=layout.fruchterman.reingold)
 
 # save the graph for examining using cytoscape
-write.graph(ig, file='Results/ig_test_bp.graphml', format = 'graphml')
+write.graph(ig.p, file='Results/ig_test_bp.graphml', format = 'graphml')
 
+# intersect the 2 graphs to make final graph
+ig.f = graph.intersection(ig, ig.p)
+# set weight parameters
+E(ig.f)$distance = E(ig.f)$weight_1
+E(ig.f)$weight = E(ig.f)$ob_to_ex
 
-
+# save the graph for examining using cytoscape
+write.graph(ig.f, file='Results/ig_final.graphml', format = 'graphml')
 
 
 
