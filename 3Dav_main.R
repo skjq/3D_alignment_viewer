@@ -148,5 +148,32 @@ E(ig.f)$weight = E(ig.f)$ob_to_ex
 # save the graph for examining using cytoscape
 write.graph(ig.f, file='Results/ig_final.graphml', format = 'graphml')
 
+# plot the final graph
+plot(ig.f, vertex.size=0.1, layout=layout.fruchterman.reingold, vertex.label=NA, 
+     main='Final graph')
+# find communities in the graph
+d = degree(ig.f)
+par(p.old)
+hist(d)
+ig.f = delete.vertices(ig.f, which(d == 0))
 
+par(mar=c(1,1,1,1))
+com = edge.betweenness.community(ig.f)
+plot(com, ig.f, vertex.size=0.1, layout=layout.fruchterman.reingold, vertex.label=NA,
+     main='Final graph')
+
+# subset the communities graphs
+l = length(sizes(com))
+lGraphs = vector('list', length=l)
+names(lGraphs) = 1:l
+mem = membership(com)
+for (i in 1:l){
+  c1 = names(mem[mem == i])
+  lGraphs[[i]] = induced.subgraph(ig.f, vids = c1)
+}
+
+# plot the graphs
+sapply(seq_along(lGraphs), function(x) {
+  plot(lGraphs[[x]], layout=layout.fruchterman.reingold, main=x)
+})
 
