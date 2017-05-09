@@ -80,7 +80,8 @@ for (i in 1:length(lig)){
 }
 
 # intersect the graphs to make a common graph
-ig = graph.intersection(lig)
+#ig = igraph::graph.intersection(lig[[1]], lig[[2]], lig[[3]])
+ig = do.call(igraph::graph.intersection, lig)
 E(ig)$weight = E(ig)$weight_1
 plot(ig, vertex.size=0.1, layout=layout.fruchterman.reingold)
 
